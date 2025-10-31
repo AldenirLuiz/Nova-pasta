@@ -1,6 +1,4 @@
-import os
 import sys
-import cv2
 import pytesseract
 from pathlib import Path
 from preprocessor import preprocess_image
@@ -9,9 +7,9 @@ from reporter import generate_report
 
 def main(image_path: str = None):
     base = Path(__file__).resolve().parent
-    default_image = base.parent.joinpath("../", 'imagem.png')
+    default_image = base.parent.joinpath("../", 'img1.jpg')
     img_path = Path(image_path) if image_path else default_image
-    pytesseract.pytesseract.tesseract_cmd = "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"
+    pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
     if not img_path.exists():
         print(f"Arquivo não encontrado: {img_path}")

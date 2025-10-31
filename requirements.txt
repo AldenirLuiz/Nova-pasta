@@ -1,0 +1,15 @@
+# Dependencies required by attendance-scanner
+# Note: Tesseract OCR is a separate system binary and must be installed
+# (e.g. Windows installer or apt on Linux). The project sets the tesseract
+# binary path in `src/main.py`.
+
+numpy>=1.24
+opencv-python>=4.7.0
+pytesseract>=0.3.10
+
+# Optional: if you run in a headless environment (no GUI), consider:
+# opencv-python-headless>=4.7.0
+
+# Optional: fuzzy matching helpers for mapping OCR names to a canonical roster
+# rapidfuzz is fast and recommended when you have a roster.csv to match against
+rapidfuzz>=2.0
