@@ -1,0 +1,72 @@
+# .gitignore gerado para projeto Python (Windows / VSCode / virtualenv)
+
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# VS Code / IDE
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing / coverage
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+htmlcov/
+
+# Type checkers / caches
+.mypy_cache/
+.pyre/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Reports, logs and DBs (gerados)
+reports/
+*.log
+*.sqlite3
+*.db
+
+# Data / large images (opcional: ajuste conforme necessário)
+data/raw/
+data/processed/
+*.tif
+*.tiff
+
+# Local secrets / env
+.env
+.env.*
+credentials.json
+local_settings.py
+
+# Misc
+*.whl
+*.egg
+*.bak
+*.tmp
+.idea/
