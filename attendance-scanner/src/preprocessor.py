@@ -35,8 +35,9 @@ def preprocess_image(image_path):
 
 if __name__ == "__main__":
     base = Path(__file__).resolve().parent
-    test_image = base.parent.joinpath("../", 'img2.png')
+    test_image = base.parent.joinpath("../", 'BEST.png')
     processed = preprocess_image(test_image)
+    
     cv2.imshow("Processed Image", processed)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

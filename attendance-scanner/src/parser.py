@@ -2,6 +2,8 @@ import re
 import unicodedata
 from collections import Counter
 from typing import List, Dict, Any
+from dataclasses import dataclass
+from datetime import datetime
 
 # try to import matcher for roster fuzzy-matching; if not available, we'll skip matching
 try:
@@ -24,6 +26,17 @@ COMMON_FIRST_NAMES = [
     'MICHAEL','PAULO','RAILSON','RENATO','RICARDO','RONALDO','SEBASTIAO','TIAGO','WELLINGTON',
     'JEFERSON','JEFERSON','JOAQUIM','JONALDO','ISRAEL'
 ]
+
+
+@dataclass
+class AttendanceEntry:
+    name: str
+    role: str
+    morning_in: str = ''
+    morning_out: str = ''
+    afternoon_in: str = ''
+    afternoon_out: str = ''
+    is_absent: bool = False
 
 
 def _remove_accents(s: str) -> str:
@@ -153,91 +166,88 @@ def correct_name(raw: str) -> str:
     return final
 
 
+def parse_time(time_str: str) -> str:
+    """Validates and formats time strings"""
+    if time_str.upper() == 'F':
+        return 'F'
+    try:
+        # Normalize time format
+        if ':' in time_str:
+            return time_str.strip()
+        # Handle cases where : is missing
+        if len(time_str) == 4:
+            return f"{time_str[:2]}:{time_str[2:]}"
+        return time_str
+    except:
+        return time_str
+
+
+def parse_line(line: str) -> AttendanceEntry:
+    """Parses a single line from the attendance sheet"""
+    # Remove multiple spaces and split
+    parts = [p.strip() for p in re.split(r'\s+', line) if p.strip()]
+    
+    if len(parts) < 4:  # Skip invalid lines
+        return None
+        
+    # Extract times (looking for patterns like HH:MM or HHMM)
+    times = []
+    for part in parts:
+        if re.match(r'^([0-2]?\d[:.]?[0-5]\d|F)$', part):
+            times.append(parse_time(part))
+    
+    # Get name and role (typically first parts before times)
+    name_parts = []
+    role_parts = []
+    found_role = False
+    
+    for part in parts:
+        if not re.match(r'^([0-2]?\d[:.]?[0-5]\d|F)$', part):
+            if found_role:
+                role_parts.append(part)
+            else:
+                # Common roles that indicate role section started
+                if part.upper() in ['SERVENTE', 'PEDREIRO', 'PINTOR', 'ELETRICISTA']:
+                    found_role = True
+                    role_parts.append(part)
+                else:
+                    name_parts.append(part)
+    
+    name = ' '.join(name_parts)
+    role = ' '.join(role_parts)
+    
+    entry = AttendanceEntry(
+        name=name,
+        role=role,
+        is_absent=any(t == 'F' for t in times)
+    )
+    
+    # Assign times if available
+    if len(times) >= 1: entry.morning_in = times[0]
+    if len(times) >= 2: entry.morning_out = times[1]
+    if len(times) >= 3: entry.afternoon_in = times[2]
+    if len(times) >= 4: entry.afternoon_out = times[3]
+    
+    return entry
+
 def parse_attendance_data(text: str) -> Dict[str, Any]:
-    """Versão melhorada do parser que tenta extrair e corrigir nomes OCR-corrompidos.
-
-    Retorna contagens e detalhes por linha com campos adicionais:
-    - original_line: a linha OCR bruta
-    - cleaned_name: nome após limpeza/remoção de cargos/tempos
-    - corrected_name: nome final sugerido
-    - status: present/absent/unknown
-    """
-    if not text:
-        return {"present": 0, "absent": 0, "total_lines": 0, "details": []}
-
-    lines: List[str] = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    time_re = re.compile(r'\b(?:[01]?\d|2[0-3]):[0-5]\d\b')
-    absent_tokens = re.compile(r'\b(F|FALTA|AUSENTE)\b', re.IGNORECASE)
-
-    present = 0
-    absent = 0
-    details: List[Dict[str, Any]] = []
-
-    # normalmente a folha tem cabeçalho; se poucas linhas, percorre todas
-    iter_lines = lines[2:-1] if len(lines) > 4 else lines
-
-    for ln in iter_lines:
-        has_time = bool(time_re.search(ln))
-        has_absent = bool(absent_tokens.search(ln))
-
-        cleaned = clean_ocr_text(ln)
-        cleaned_no_meta = strip_times_and_roles(cleaned)
-        corrected = correct_name(cleaned_no_meta)
-
-        if has_time:
-            status = 'present'
-            present += 1
-        elif has_absent:
-            status = 'absent'
-            absent += 1
-        else:
-            status = 'unknown'
-
-        # attempt to match corrected name to canonical roster name (if roster available)
-        canonical = None
-        match_score = None
-        try:
-            if ROSTER:
-                canonical, match_score = match_to_roster(corrected, ROSTER, threshold=85)
-        except Exception:
-            canonical = None
-            match_score = None
-
-        details.append({
-            'original_line': ln,
-            'cleaned_name': cleaned_no_meta,
-            'corrected_name': corrected,
-            'canonical_name': canonical,
-            'match_score': match_score,
-            'status': status,
-            'has_time': has_time,
-            'has_absent_mark': has_absent
-        })
-
+    """Parses the complete attendance sheet"""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    entries: List[AttendanceEntry] = []
+    
+    for line in lines:
+        entry = parse_line(line)
+        if entry:
+            entries.append(entry)
+    
+    # Count attendance
+    present = sum(1 for e in entries if not e.is_absent)
+    absent = sum(1 for e in entries if e.is_absent)
+    
     return {
-        'present': int(present),
-        'absent': int(absent),
-        'total_lines': len(lines),
-        'details': details
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "present": present,
+        "absent": absent,
+        "total": len(entries),
+        "entries": entries
     }
-
-
-def parse_attendance_data_simple(text: str):
-    """
-    Conta ocorrências de marcas comuns em folhas de ponto:
-    - Presença: 'P', 'PRESENTE', 'PRES', 'X' (se X for usado)
-    - Falta: 'F', 'FALTA', 'AUSENTE'
-    Retorna dicionário com present, absent e tokens brutos.
-    """
-    if not text:
-        return {"present": 0, "absent": 0, "raw_counts": {}}
-
-    t = text.upper()
-    # Captura P e F isolados, palavras e marcas comuns (X, ✓)
-    tokens = re.findall(r'\bP\b|\bF\b|\bPRESENTE\b|\bPRES\b|\bFALTA\b|\bAUSENTE\b|[X\u2713\u2714]', t)
-    counts = Counter(tokens)
-
-    present = counts.get('P', 0) + counts.get('PRESENTE', 0) + counts.get('PRES', 0) + counts.get('X', 0) + counts.get('✓', 0) + counts.get('✔', 0)
-    absent  = counts.get('F', 0) + counts.get('FALTA', 0) + counts.get('AUSENTE', 0)
-
-    return {"present": int(present), "absent": int(absent), "raw_counts": dict(counts)}
